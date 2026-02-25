@@ -2,27 +2,25 @@
 
 ## Overview
 
-This is a full-stack PDF processing application with separated frontend and backend services designed for privacy and simplicity.
+This project is a static, frontend-only PDF processing application by default. All PDF processing happens in the browser for privacy and simplicity. An optional backend is included for advanced use, but is not required for normal operation or deployment.
 
-## System Architecture
+## System Architecture (Default: Frontend Only)
 
 ```
 ┌─────────────────────┐
 │   User Browser      │
 └──────────┬──────────┘
            │ 
-           ├─────────────────────────────────────────┐
-           │                                         │
-    ┌──────▼──────────┐              ┌──────────────▼────┐
-    │  React + Vite   │              │  Express API       │
-    │   (Frontend)    │◄────────────►│    (Backend)       │
-    │                 │   REST API   │                    │
-    ├─────────────────┤              ├────────────────────┤
-    │ • Merge         │              │ • PDF Signing      │
-    │ • Split         │              │ • File Upload      │
-    │ • Rotate        │              │ • Processing       │
-    │ • Draw Sign.    │              │ • Response         │
-    └─────────────────┘              └────────────────────┘
+    ┌──────▼──────────┐
+    │  React + Vite   │
+    │   (Frontend)    │
+    │                 │
+    ├─────────────────┤
+    │ • Merge         │
+    │ • Split         │
+    │ • Rotate        │
+    │ • Draw Sign.    │
+    └─────────────────┘
            │
            │ All processing happens in-memory
            │ No files stored permanently

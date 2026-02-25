@@ -1,6 +1,6 @@
 # PDF Processor
 
-A simple, privacy-focused PDF processing web application with no file storage. Similar to SmallPDF but with core features for personal use.
+A simple, privacy-focused PDF processing web application. All PDF processing is done client-side in your browser—no files are uploaded or stored.
 
 ## Features
 
@@ -11,23 +11,25 @@ A simple, privacy-focused PDF processing web application with no file storage. S
 
 ## Privacy
 
-Your PDF files are processed entirely on your device or in-memory on the backend. We never store or upload your files to persistent storage.
+Your PDF files are processed entirely in your browser. No files are uploaded or stored on any server.
 
 ## Project Structure
 
 ```
 process_pdfs/
-├── frontend/          # React + Vite application
-├── backend/           # Flask API (Poetry-managed)
-└── docs and configs
+├── src/                # React app source code
+├── public/             # Static assets
+├── index.html          # App entry point
+├── package.json        # Project config
+├── vite.config.js      # Vite config
+├── ...                # Other config/docs
 ```
 
-## Backend Notes
+## Deployment
 
-- Uses **Flask** and **Poetry** for dependency & virtualenv management.
-- Uses **pypdf** for PDF reading/writing (replaces PyPDF2).
-- Use `poetry install` in `backend/` to create the venv and install dependencies.
+- The default deployment is static (frontend-only) and works on GitHub Pages or any static host.
+- The backend (Flask) is included for future/advanced use, but is not required or used for the default deployment.
 
 ## Getting Started
 
-See [SETUP.md](./SETUP.md) and [DEVELOPMENT.md](./DEVELOPMENT.md) for full setup and run instructions.
+See [SETUP.md](./SETUP.md) and [DEVELOPMENT.md](./DEVELOPMENT.md) for setup and run instructions.

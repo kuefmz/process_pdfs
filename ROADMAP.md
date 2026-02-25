@@ -81,7 +81,7 @@
 - [ ] File streaming (no memory limit)
 - [ ] Image processing pipeline
 
-### Frontend Improvements
+### Frontend Improvements (Root-Level)
 - [ ] Real-time PDF preview
 - [ ] Page thumbnail gallery
 - [ ] Advanced editing tools

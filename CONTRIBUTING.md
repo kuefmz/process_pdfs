@@ -12,28 +12,26 @@ Thanks for your interest in contributing! Here are some guidelines:
 
 2. **Install dependencies**
    ```bash
-   # Frontend
-   cd frontend
    npm install
 
-   # Backend (in another terminal)
+   # (Optional) Backend
    cd backend
    npm install
    ```
 
 3. **Start development servers**
    ```bash
-   # Frontend (from frontend directory)
    npm run dev
 
-   # Backend (from backend directory)
+   # (Optional) Backend (in backend directory)
+   cd backend
    npm run dev
    ```
 
 ## Code Style
 
 - Use 2 spaces for indentation
-- Follow ESLint rules (run `npm run lint` in frontend)
+- Follow ESLint rules (run `npm run lint` in the project root)
 - Write meaningful commit messages
 - Keep components small and focused
 
