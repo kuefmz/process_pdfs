@@ -1,19 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { PDFDocument, degrees, rgb, StandardFonts } from 'pdf-lib'
+import * as pdfjsLib from 'pdfjs-dist'
+import './Pages.css'
 
-// User Info
+pdfjsLib.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdf.worker.js`
+
+const CANVAS_MAX_W = 1600
+const CANVAS_MAX_H = 2000
+
 const USER_NAME = 'Jenifer Tabita Ciuciu-Kiss';
 const USER_INTRO = 'AI-driven and data-passionate';
 const LINKEDIN_URL = 'https://www.linkedin.com/in/jenifer-tabita-ciuciu-kiss/';
 const GITHUB_REPO_URL = 'https://github.com/kuefmz/process_pdfs';
 const GITHUB_USER_URL = 'https://github.com/kuefmz';
-import { PDFDocument, degrees, rgb, StandardFonts } from 'pdf-lib'
-import * as pdfjsLib from 'pdfjs-dist'
-import './Pages.css'
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.js'
-
-const CANVAS_MAX_W = 1600
-const CANVAS_MAX_H = 2000
 
 let _ovId = 0
 const newId = () => `ov-${Date.now()}-${++_ovId}`
