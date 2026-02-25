@@ -1347,80 +1347,52 @@
   border: 1px solid #c3e6cb;
 }
 
-/* =========================
-   Mobile fix: show PDF pages
-   ========================= */
+/* ==========================================
+   MOBILE – clean full width + stable Pages
+   ========================================== */
 @media (max-width: 900px) {
-  /* Stack the 3 columns vertically */
+
+  /* Stack vertically but keep flex */
   .main-content {
+    display: flex;
     flex-direction: column;
-    overflow: auto; /* allow scrolling on mobile */
+    width: 100%;
   }
 
+  /* Every section takes full width */
   .sidebar-left,
+  .center-area,
   .sidebar-right {
     width: 100% !important;
     max-width: 100% !important;
-    border-left: none;
-    border-right: none;
+    flex: none;              /* prevent flex shrinking */
   }
 
-  .center-area {
-    width: 100%;
-    padding: 12px;
-    overflow: auto;
-  }
-
-  /* Let the canvas area be scrollable instead of clipped */
-  .page-canvas-wrapper {
-    overflow-x: auto;   /* was hidden -> can clip canvas on narrow screens */
-    overflow-y: hidden;
-    max-width: 100%;
-    min-height: 70vh;
-  }
-
-  /* Make canvas fit the screen */
-  .page-canvas {
-    width: 100% !important;
-    height: auto !important;
-  }
-}
-
-/* =========================
-   Mobile fix: show PDF pages
-   ========================= */
-@media (max-width: 900px) {
-  /* Stack the 3 columns vertically */
-  .main-content {
-    flex-direction: column;
-    overflow: auto; /* allow scrolling on mobile */
-  }
-
+  /* Remove internal scroll everywhere */
   .sidebar-left,
-  .sidebar-right {
-    width: 100% !important;
-    max-width: 100% !important;
-    border-left: none;
-    border-right: none;
-  }
-
+  .sidebar-right,
   .center-area {
-    width: 100%;
-    padding: 12px;
-    overflow: auto;
+    overflow: visible !important;
+    height: auto !important;
   }
 
-  /* Let the canvas area be scrollable instead of clipped */
+  /* =======================
+     ONLY Pages scroll
+     ======================= */
+
   .page-canvas-wrapper {
-    overflow-x: auto;   /* was hidden -> can clip canvas on narrow screens */
-    overflow-y: hidden;
-    max-width: 100%;
-    min-height: 70vh;
+    width: 100%;
+    min-height: 60vh;        /* 👈 adjust if needed */
+    overflow-y: auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
-  /* Make canvas fit the screen */
+  /* Canvas uses full width */
   .page-canvas {
+    display: block;
     width: 100% !important;
     height: auto !important;
+    max-width: 100% !important;
   }
 }
