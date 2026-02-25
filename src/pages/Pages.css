@@ -1376,6 +1376,46 @@
     overflow-x: auto;   /* was hidden -> can clip canvas on narrow screens */
     overflow-y: hidden;
     max-width: 100%;
+    min-height: 70vh;
+  }
+
+  /* Make canvas fit the screen */
+  .page-canvas {
+    width: 100% !important;
+    height: auto !important;
+  }
+}
+
+/* =========================
+   Mobile fix: show PDF pages
+   ========================= */
+@media (max-width: 900px) {
+  /* Stack the 3 columns vertically */
+  .main-content {
+    flex-direction: column;
+    overflow: auto; /* allow scrolling on mobile */
+  }
+
+  .sidebar-left,
+  .sidebar-right {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-left: none;
+    border-right: none;
+  }
+
+  .center-area {
+    width: 100%;
+    padding: 12px;
+    overflow: auto;
+  }
+
+  /* Let the canvas area be scrollable instead of clipped */
+  .page-canvas-wrapper {
+    overflow-x: auto;   /* was hidden -> can clip canvas on narrow screens */
+    overflow-y: hidden;
+    max-width: 100%;
+    min-height: 70vh;
   }
 
   /* Make canvas fit the screen */
