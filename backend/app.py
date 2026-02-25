@@ -25,9 +25,44 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+EXPORT_COUNT_FILE = 'export_count.txt'
+
+def get_export_count():
+    if not os.path.exists(EXPORT_COUNT_FILE):
+        return 0
+    try:
+        with open(EXPORT_COUNT_FILE, 'r') as f:
+            return int(f.read().strip())
+    except Exception as e:
+        logger.error(f'Error reading export count file: {e}')
+        return 0
+
+def increment_export_count():
+    count = get_export_count() + 1
+    try:
+        with open(EXPORT_COUNT_FILE, 'w') as f:
+            f.write(str(count))
+    except Exception as e:
+        logger.error(f'Error writing export count file: {e}')
+        return -1
+    return count
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'OK', 'message': 'Backend is running'})
+
+@app.route('/api/track-export', methods=['POST'])
+def track_export():
+    count = increment_export_count()
+    if count == -1:
+        return jsonify({'error': 'Failed to update export count'}), 500
+    logger.info(f'Export PDF clicked. Total: {count}')
+    return jsonify({'count': count})
+
+@app.route('/api/export-count', methods=['GET'])
+def export_count():
+    count = get_export_count()
+    return jsonify({'count': count})
 
 @app.route('/api/sign', methods=['POST'])
 def sign_pdf():

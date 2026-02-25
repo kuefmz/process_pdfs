@@ -1,4 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react'
+
+// User Info
+const USER_NAME = 'Jenifer Tabita Ciuciu-Kiss';
+const USER_INTRO = 'AI-driven and data-passionate';
+const LINKEDIN_URL = 'https://www.linkedin.com/in/jenifer-tabita-ciuciu-kiss/';
+const GITHUB_REPO_URL = 'https://github.com/kuefmz/process_pdfs';
+const GITHUB_USER_URL = 'https://github.com/kuefmz';
 import { PDFDocument, degrees, rgb, StandardFonts } from 'pdf-lib'
 import * as pdfjsLib from 'pdfjs-dist'
 import './Pages.css'
@@ -14,7 +21,8 @@ const newId = () => `ov-${Date.now()}-${++_ovId}`
 function Home() {
   const [files, setFiles] = useState([])
   const [pages, setPages] = useState([]) // { id, fileId, pageIndex, rotate }
-  const [signature, setSignature] = useState({ file: null, preview: null })
+  const [signatures, setSignatures] = useState([]) // [{ file, preview }]
+  const [selectedSignatureIdx, setSelectedSignatureIdx] = useState(0)
   const [error, setError] = useState('')
   const [draggedPageId, setDraggedPageId] = useState(null)
   const [hoveredPageIdx, setHoveredPageIdx] = useState(null)
@@ -63,10 +71,14 @@ function Home() {
     const f = ev.target?.files?.[0]
     if (!f) return
     const reader = new FileReader()
-    reader.onload = (e) => setSignature({ file: f, preview: e.target.result })
+    reader.onload = (e) => {
+      setSignatures(prev => [...prev, { file: f, preview: e.target.result }])
+      setSelectedSignatureIdx(signatures.length)
+    }
     reader.readAsDataURL(f)
     ev.target.value = ''
   }
+  
 
   // ── PDF rendering ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -175,7 +187,6 @@ function Home() {
           // the canvas scale.  After a ±90° rotation the canvas keeps the same
           // CSS width (W) but its height changes to W²/H because the page
           // aspect ratio flips and the renderer re-scales to fill the width.
-          //
           // Normalised transforms (y=0 at top):
           //   CW  (+90°): (xn, yn) → (1−yn, xn)
           //   CCW (−90°): (xn, yn) → (yn,   1−xn)
@@ -184,18 +195,16 @@ function Home() {
           const yn = ov.y / H
           let nx, ny
           if (delta === 90 || delta === -270) {
-            // CW — new canvas: W × (W²/H)
             nx = (1 - yn) * W
             ny = xn * (W * W / H)
           } else if (delta === -90 || delta === 270) {
-            // CCW — new canvas: W × (W²/H)
             nx = yn * W
             ny = (1 - xn) * (W * W / H)
           } else {
-            // 180° — canvas stays W × H
             nx = (1 - xn) * W
             ny = (1 - yn) * H
           }
+          // Rotate overlays for both signature and text
           const newRotate = ((ov.rotate || 0) + delta + 360) % 360
           return { ...ov, x: nx, y: ny, rotate: newRotate }
         })
@@ -249,7 +258,7 @@ function Home() {
     const canvas = canvasRefs.current[pageId]
     const cw = canvas ? (canvas.clientWidth || canvas.width) : 200
     const w = type === 'signature' ? Math.round(cw * sigScale) : 140
-    const base = type === 'signature' ? { sigScale, w } : { fontSize: textSize, w }
+    const base = type === 'signature' ? { sigScale, w, signatureIdx: selectedSignatureIdx } : { fontSize: textSize, w }
     setOverlays(prev => ({
       ...prev,
       [pageId]: [...(prev[pageId] || []), { id, type, x, y, text: '', ...base }],
@@ -345,10 +354,12 @@ function Home() {
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     if (tool === 'signature') {
-      if (!signature.preview) return
+      if (!signatures.length || selectedSignatureIdx < 0 || selectedSignatureIdx >= signatures.length) return
       addOverlay(pageId, x, y, 'signature')
+      setTool(null)
     } else if (tool === 'text') {
       addOverlay(pageId, x, y, 'text')
+      setTool(null)
     }
   }
 
@@ -360,18 +371,19 @@ function Home() {
       const newPdf = await PDFDocument.create()
       const font = await newPdf.embedFont(StandardFonts.Helvetica)
 
-      // Embed signature once
-      let embeddedSig = null
-      const needsSig = Object.values(overlays).some(ovs => ovs.some(o => o.type === 'signature'))
-      if (needsSig && signature.preview) {
-        const res = await fetch(signature.preview)
-        const rawBytes = await res.arrayBuffer()
-        // Pre-copy the buffer before any embed attempt: pdf-lib may detach the
-        // ArrayBuffer internally when parsing fails, making reuse impossible.
-        const bytesForPng = rawBytes.slice(0)
-        const bytesForJpg = rawBytes.slice(0)
-        try { embeddedSig = await newPdf.embedPng(bytesForPng) }
-        catch { try { embeddedSig = await newPdf.embedJpg(bytesForJpg) } catch {} }
+      // Embed all signatures
+      const embeddedSigs = [];
+      for (let i = 0; i < signatures.length; ++i) {
+        const sig = signatures[i];
+        if (!sig) { embeddedSigs[i] = null; continue; }
+        try {
+          const res = await fetch(sig.preview);
+          const rawBytes = await res.arrayBuffer();
+          const bytesForPng = rawBytes.slice(0);
+          const bytesForJpg = rawBytes.slice(0);
+          try { embeddedSigs[i] = await newPdf.embedPng(bytesForPng); }
+          catch { try { embeddedSigs[i] = await newPdf.embedJpg(bytesForJpg); } catch { embeddedSigs[i] = null; } }
+        } catch { embeddedSigs[i] = null; }
       }
 
       for (const p of pages) {
@@ -385,53 +397,61 @@ function Home() {
         newPdf.addPage(copied)
         const pdfPage = newPdf.getPages()[newPdf.getPageCount() - 1]
 
+        let pageRotation = 0;
         if (p.rotate) {
-          const existing = pdfPage.getRotation().angle
-          pdfPage.setRotation(degrees((existing + p.rotate) % 360))
+          const existing = pdfPage.getRotation().angle;
+          pageRotation = (existing + p.rotate) % 360;
+          pdfPage.setRotation(degrees(pageRotation));
         }
 
-        const pageOvs = overlays[p.id] || []
-        if (pageOvs.length === 0) continue
+        const pageOvs = overlays[p.id] || [];
+        if (pageOvs.length === 0) continue;
 
-        const viewport = viewportsRef.current[p.id]
-        const pageW = pdfPage.getWidth()
-        const pageH = pdfPage.getHeight()
-        const canvasEl = canvasRefs.current[p.id]
+        const viewport = viewportsRef.current[p.id];
+        const pageW = pdfPage.getWidth();
+        const pageH = pdfPage.getHeight();
+        const canvasEl = canvasRefs.current[p.id];
 
         for (const ov of pageOvs) {
-          let pdfX, pdfY
+          let pdfX, pdfY;
           if (viewport && typeof viewport.convertToPdfPoint === 'function') {
-            ;[pdfX, pdfY] = viewport.convertToPdfPoint(ov.x, ov.y)
+            ;[pdfX, pdfY] = viewport.convertToPdfPoint(ov.x, ov.y);
           } else if (canvasEl) {
-            // map from displayed CSS pixels to PDF points using clientWidth/Height
-            const cw = canvasEl.clientWidth || canvasEl.width
-            const ch = canvasEl.clientHeight || canvasEl.height
-            pdfX = (ov.x / cw) * pageW
-            pdfY = pageH - (ov.y / ch) * pageH
+            const cw = canvasEl.clientWidth || canvasEl.width;
+            const ch = canvasEl.clientHeight || canvasEl.height;
+            pdfX = (ov.x / cw) * pageW;
+            pdfY = pageH - (ov.y / ch) * pageH;
           } else {
-            pdfX = 50; pdfY = 50
+            pdfX = 50; pdfY = 50;
           }
 
-          if (ov.type === 'signature' && embeddedSig) {
-            const scale = typeof ov.sigScale === 'number' ? ov.sigScale : sigScale
-            const sigW = pageW * scale
-            const sigH = sigW * (embeddedSig.height / embeddedSig.width)
-            pdfPage.drawImage(embeddedSig, {
-              x: pdfX - sigW / 2,
-              y: pdfY - sigH / 2,
+          // Combine overlay rotation with page rotation (invert page rotation direction)
+          const totalRotate = ((ov.rotate || 0) - pageRotation + 360) % 360;
+
+          if (ov.type === 'signature' && typeof ov.signatureIdx === 'number' && embeddedSigs[ov.signatureIdx]) {
+            const scale = typeof ov.sigScale === 'number' ? ov.sigScale : sigScale;
+            const sigW = pageW * scale;
+            const sigH = sigW * (embeddedSigs[ov.signatureIdx].height / embeddedSigs[ov.signatureIdx].width);
+            pdfPage.drawImage(embeddedSigs[ov.signatureIdx], {
+              x: pdfX,
+              y: pdfY,
               width: sigW,
               height: sigH,
               opacity: 0.9,
-            })
+              rotate: totalRotate ? degrees(totalRotate) : undefined,
+              origin: { x: sigW / 2, y: sigH / 2 },
+            });
           } else if (ov.type === 'text' && ov.text) {
-            const fontSize = ov.fontSize || 12
+            const fontSize = ov.fontSize || 12;
             pdfPage.drawText(ov.text, {
               x: pdfX,
               y: pdfY,
               size: fontSize,
               font,
               color: rgb(0, 0, 0),
-            })
+              rotate: totalRotate ? degrees(totalRotate) : undefined,
+              origin: { x: 0, y: fontSize / 2 },
+            });
           }
         }
       }
@@ -453,12 +473,37 @@ function Home() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="workspace-container">
-      {/* Header */}
-      <div className="header-bar">
-        {error && <div className="error-message" style={{ flex: 1 }}>{error}</div>}
-        <button className="btn btn-primary" onClick={exportPDF}>⬇ Export PDF</button>
+    <div className="workspace-container" >
+      {/* User Info Header (compact) */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottom: '1px solid #e0e0e0',
+        padding: '4px 8px 4px 8px',
+        marginBottom: 0,
+        fontSize: 13,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontWeight: 700, fontSize: 17, color: '#222' }}>{USER_NAME}</span>
+          <span style={{ fontSize: 16, color: '#444' }}>{USER_INTRO}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer" title="LinkedIn" style={{ display: 'flex', alignItems: 'center', color: '#0077b5', textDecoration: 'none', fontSize: 15 }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#0077b5" style={{ marginRight: 2 }}><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-10h3v10zm-1.5-11.268c-.966 0-1.75-.784-1.75-1.75s.784-1.75 1.75-1.75 1.75.784 1.75 1.75-.784 1.75-1.75 1.75zm15.5 11.268h-3v-5.604c0-1.337-.025-3.063-1.868-3.063-1.868 0-2.154 1.459-2.154 2.967v5.7h-3v-10h2.881v1.367h.041c.401-.761 1.379-1.563 2.841-1.563 3.04 0 3.601 2.002 3.601 4.604v5.592z"/></svg>
+            LinkedIn
+          </a>
+          <a href={GITHUB_USER_URL} target="_blank" rel="noopener noreferrer" title="GitHub Repo" style={{ display: 'flex', alignItems: 'center', color: '#333', textDecoration: 'none', fontSize: 15 }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#333" style={{ marginRight: 2 }}><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.416-4.042-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.084-.729.084-.729 1.205.084 1.84 1.236 1.84 1.236 1.07 1.834 2.809 1.304 3.495.997.108-.775.418-1.305.762-1.605-2.665-.305-5.466-1.334-5.466-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.523.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.553 3.297-1.23 3.297-1.23.653 1.653.242 2.873.119 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.803 5.624-5.475 5.921.43.371.823 1.102.823 2.222 0 1.606-.014 2.898-.014 3.293 0 .322.216.694.825.576 4.765-1.589 8.199-6.085 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            GitHub
+          </a>
+        </div>
       </div>
+
+      {/* Error message (if any) */}
+      {error && (
+        <div className="error-message" style={{ margin: '12px 0', color: '#c00', textAlign: 'center' }}>{error}</div>
+      )}
 
       <div className="main-content">
         {/* Left sidebar */}
@@ -478,7 +523,7 @@ function Home() {
 
           <div className="sidebar-section">
             <div className="sidebar-label">Tools</div>
-            {signature.preview && (
+            {signatures.length > 0 && (
               <button
                 className={`tool-btn${tool === 'signature' ? ' active' : ''}`}
                 onClick={() => setTool(t => t === 'signature' ? null : 'signature')}
@@ -499,25 +544,44 @@ function Home() {
             )}
           </div>
 
-          {signature.preview && (
+          {signatures.length > 0 && (
             <div className="signature-panel">
-              <div className="sidebar-label">Signature</div>
-              <div className="signature-preview">
-                <img src={signature.preview} alt="signature" />
+              <div className="sidebar-label">Signatures</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {signatures.map((sig, idx) => (
+                  <div key={idx} style={{ textAlign: 'center' }}>
+                    <img
+                      src={sig.preview}
+                      alt={`signature-${idx}`}
+                      style={{
+                        border: selectedSignatureIdx === idx ? '2px solid #007bff' : '1px solid #ccc',
+                        borderRadius: 4,
+                        width: 60,
+                        height: 40,
+                        objectFit: 'contain',
+                        cursor: 'pointer',
+                        marginBottom: 2,
+                      }}
+                      onClick={() => setSelectedSignatureIdx(idx)}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}
         </div>
 
-        {/* Center area */}
+        {/* Center area (reduced height, scrollable) */}
         <div className="center-area">
-          <h2 style={{ marginTop: 0, marginBottom: 12 }}>Pages</h2>
+          <h2 className="pages-title">Pages</h2>
           <div className="pages-grid">
             {pages.map((p, idx) => {
+              // ...existing code for rendering pages...
               const fileObj = files.find(f => f.id === p.fileId)
               const isDragOver = hoveredPageIdx === idx
               const pageOvs = overlays[p.id] || []
               return (
+                // ...existing code for rendering each page card...
                 <div
                   key={p.id}
                   draggable
@@ -530,7 +594,6 @@ function Home() {
                   <div className="page-header">
                     {fileObj?.file.name} • Page {p.pageIndex + 1}
                   </div>
-
                   {/* Canvas + overlays */}
                   <div
                     ref={el => wrapperRefs.current[p.id] = el}
@@ -560,11 +623,13 @@ function Home() {
                         >
                           <div className="overlay-content" style={{ width: overlayW, transform: ov.rotate ? `rotate(${ov.rotate}deg)` : undefined }}>
                             {ov.type === 'signature' ? (
-                              <img
-                                src={signature.preview}
-                                alt="sig"
-                                draggable={false}
-                              />
+                              signatures[ov.signatureIdx] && (
+                                <img
+                                  src={signatures[ov.signatureIdx].preview}
+                                  alt={`sig${ov.signatureIdx}`}
+                                  draggable={false}
+                                />
+                              )
                             ) : (
                               <input
                                 className="text-overlay-input"
@@ -593,7 +658,6 @@ function Home() {
                       )
                     })}
                   </div>
-
                   {/* Controls */}
                   <div className="page-controls">
                     <button onClick={() => rotatePage(p.id, -90)}>↶ Rotate</button>
@@ -620,6 +684,7 @@ function Home() {
 
         {/* Right sidebar */}
         <div className="sidebar-right">
+          <button className="btn btn-primary" style={{ width: '100%', marginBottom: 16 }} onClick={exportPDF}>⬇ Export PDF</button>
           <div className="sidebar-section" style={{ marginBottom: 16 }}>
             <div className="sidebar-label">Output filename</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -649,6 +714,25 @@ function Home() {
           </div>
         </div>
       </div>
+      {/* Footnote (compact) */}
+      <footer style={{
+        marginTop: 8,
+        padding: '8px 0 8px 0',
+        textAlign: 'center',
+        fontSize: 11,
+        color: '#888',
+        borderTop: '1px solid #eee',
+        background: '#fafbfc',
+        
+      }}>
+        <div>
+          &copy; {new Date().getFullYear()} {USER_NAME}. Generated with AI. 
+          <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer" title="GitHub Repo" style={{alignItems: 'center', color: '#333', textDecoration: 'none', fontSize: 11 }}>
+            View the code on GitHub.
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#333" style={{ marginRight: 2 }}><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.416-4.042-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.084-.729.084-.729 1.205.084 1.84 1.236 1.84 1.236 1.07 1.834 2.809 1.304 3.495.997.108-.775.418-1.305.762-1.605-2.665-.305-5.466-1.334-5.466-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.523.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.553 3.297-1.23 3.297-1.23.653 1.653.242 2.873.119 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.803 5.624-5.475 5.921.43.371.823 1.102.823 2.222 0 1.606-.014 2.898-.014 3.293 0 .322.216.694.825.576 4.765-1.589 8.199-6.085 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          </a>
+        </div>
+      </footer>
     </div>
   )
 }

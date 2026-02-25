@@ -1,8 +1,0 @@
-.pdf-preview{display:flex;gap:1rem;align-items:flex-start}
-.pdf-main{flex:1;border:1px solid #e3e3e3;padding:8px;background:#fff}
-.pdf-main canvas{max-width:100%;height:auto;display:block}
-.pdf-thumbs{width:160px;display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto}
-.pdf-thumb{border:1px solid #ddd;padding:4px;background:#fafafa;border-radius:4px}
-.pdf-thumb.selected{outline:3px solid #2b8cff}
-.pdf-thumb canvas{display:block;max-width:100%;height:auto}
-.pdf-thumb-label{font-size:12px;color:#333;text-align:center;margin-top:4px}
